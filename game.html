@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minesweeper</title>
+    <link rel="stylesheet" href="css/mystyles3.css">
+</head>
+<body>
+    <h1>Minesweeper</h1>
+    <div id="status"></div>
+    <div id="game" class="game-container"></div>
+
+    <script>
+        const rows = 10;
+        const cols = 10;
+        const minesCount = 15;
+
+        const gameContainer = document.getElementById('game');
+        const status = document.getElementById('status');
+        const grid = [];
+        let gameOver = false;
+
+        function createGrid() {
+            gameContainer.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+            gameContainer.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+            for (let r = 0; r < rows; r++) {
+                const row = [];
+                for (let c = 0; c < cols; c++) {
+                    const cell = document.createElement('button');
+                    cell.classList.add('cell');
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                    cell.addEventListener('click', () => revealCell(r, c));
+                    cell.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        toggleFlag(r, c);
+                    });
+                    gameContainer.appendChild(cell);
+                    row.push({ element: cell, mine: false, revealed: false, flagged: false, adjacentMines: 0 });
+                }
+                grid.push(row);
+            }
+
+            placeMines();
+            calculateAdjacentMines();
+        }
+
+        function placeMines() {
+            let placedMines = 0;
+            while (placedMines < minesCount) {
+                const r = Math.floor(Math.random() * rows);
+                const c = Math.floor(Math.random() * cols);
+                if (!grid[r][c].mine) {
+                    grid[r][c].mine = true;
+                    placedMines++;
+                }
+            }
+        }
+
+        function calculateAdjacentMines() {
+            const directions = [
+                [-1, -1], [-1, 0], [-1, 1],
+                [0, -1],         [0, 1],
+                [1, -1], [1, 0], [1, 1]
+            ];
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (grid[r][c].mine) continue;
+                    let count = 0;
+                    directions.forEach(([dr, dc]) => {
+                        const nr = r + dr;
+                        const nc = c + dc;
+                        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc].mine) {
+                            count++;
+                        }
+                    });
+                    grid[r][c].adjacentMines = count;
+                }
+            }
+        }
+
+        function revealCell(row, col) {
+            if (gameOver) return;
+            const cell = grid[row][col];
+            if (cell.revealed || cell.flagged) return;
+
+            cell.revealed = true;
+            cell.element.classList.add('revealed');
+
+            if (cell.mine) {
+                cell.element.classList.add('mine');
+                cell.element.textContent = '💣';
+                createExplosion(cell.element);
+                endGame(false);
+                return;
+            }
+
+            if (cell.adjacentMines > 0) {
+                cell.element.textContent = cell.adjacentMines;
+            } else {
+                const directions = [
+                    [-1, -1], [-1, 0], [-1, 1],
+                    [0, -1],         [0, 1],
+                    [1, -1], [1, 0], [1, 1]
+                ];
+                directions.forEach(([dr, dc]) => {
+                    const nr = row + dr;
+                    const nc = col + dc;
+                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                        revealCell(nr, nc);
+                    }
+                });
+            }
+
+            checkWin();
+        }
+
+        function createExplosion(cellElement) {
+            const explosion = document.createElement('div');
+            explosion.classList.add('explosion');
+            cellElement.appendChild(explosion);
+            setTimeout(() => explosion.remove(), 500);
+        }
+
+        function toggleFlag(row, col) {
+            if (gameOver) return;
+            const cell = grid[row][col];
+            if (cell.revealed) return;
+
+            cell.flagged = !cell.flagged;
+            cell.element.classList.toggle('flagged');
+            cell.element.textContent = cell.flagged ? '🚩' : '';
+        }
+
+        function revealAll() {
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const cell = grid[r][c];
+                    if (!cell.revealed) {
+                        cell.revealed = true;
+                        cell.element.classList.add('revealed');
+                        if (cell.mine) {
+                            cell.element.classList.add('mine');
+                            cell.element.textContent = '💣';
+                        } else if (cell.adjacentMines > 0) {
+                            cell.element.textContent = cell.adjacentMines;
+                        }
+                    }
+                }
+            }
+        }
+
+        function endGame(win) {
+            gameOver = true;
+            status.textContent = win ? "You win!" : "You lose!";
+            revealAll();
+        }
+
+        function checkWin() {
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const cell = grid[r][c];
+                    if (!cell.mine && !cell.revealed) return;
+                }
+            }
+            endGame(true);
+        }
+
+        createGrid();
+    </script>
+</body>
+</html>
